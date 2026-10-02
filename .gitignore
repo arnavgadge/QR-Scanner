@@ -13,3 +13,7 @@ npm-debug.log*
 *.tsbuildinfo
 .firebase
 firebase-debug.log
+
+.emulator-data
+firestore-debug.log
+ui-debug.log

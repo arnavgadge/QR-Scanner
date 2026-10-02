@@ -1,0 +1,91 @@
+rules_version = '2';
+
+// Authorization is enforced HERE, not by the React route guards.
+// Roles come from users/{uid}.role (trusted Firestore data). Users cannot change it.
+// Default is deny: anything not matched below is rejected.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ---- Role helpers (each reads the caller's users/{uid} document) ----
+    function signedIn() {
+      return request.auth != null;
+    }
+    function profilePath() {
+      return /databases/$(database)/documents/users/$(request.auth.uid);
+    }
+    function hasActiveProfile() {
+      return signedIn()
+        && exists(profilePath())
+        && get(profilePath()).data.active == true;
+    }
+    function isAdmin() {
+      return hasActiveProfile() && get(profilePath()).data.role == 'admin';
+    }
+    function isOperator() {
+      return hasActiveProfile() && get(profilePath()).data.role == 'operator';
+    }
+    // Any active, configured user.
+    function isStaff() {
+      return isAdmin() || isOperator();
+    }
+
+    // ---- users/{uid} ----
+    // A user may read only their own profile (even if inactive, so the app can explain why
+    // access is blocked). Only admins write; nobody can edit their own role from the client.
+    // The first admin is created out-of-band (Firebase console / Admin SDK), see README.
+    match /users/{uid} {
+      allow read: if signedIn() && (request.auth.uid == uid || isAdmin());
+      allow create, update: if isAdmin()
+        && request.resource.data.role in ['operator', 'admin']
+        && request.resource.data.active is bool;
+      allow delete: if false; // deactivate instead
+    }
+
+    // ---- companies/{companyId} ----
+    // Operators read active companies only (queries must filter active == true).
+    match /companies/{companyId} {
+      allow read: if isAdmin() || (isOperator() && resource.data.active == true);
+      allow create, update: if isAdmin()
+        && request.resource.data.code_type in ['barcode', 'qr'];
+      allow delete: if false; // deactivate instead
+    }
+
+    // ---- serials/{serial} ----
+    // Production history. Operators may look up ONE serial by ID (get) but cannot list the
+    // collection. Admins may list (export/reconciliation, later phases).
+    // PHASE 2: no client creates. Phase 3 adds a tightly-validated create used by the atomic
+    // registration transaction (doc ID == serial field, scanned_by == auth uid,
+    // scanned_at == request.time, create-only). Updates and deletes are never allowed.
+    match /serials/{serial} {
+      allow get: if isStaff();
+      allow list: if isAdmin();
+      allow create: if false;
+      allow update, delete: if false;
+    }
+
+    // ---- scan_log/{id} ----
+    // Append-only audit log. Entries must be attributed to the caller with a server timestamp.
+    // Never updatable or deletable from the client.
+    match /scan_log/{id} {
+      allow read: if isStaff();
+      allow create: if isStaff()
+        && request.resource.data.keys().hasOnly(
+          ['serial', 'result', 'company', 'company_id', 'source',
+           'scanned_by', 'scanned_by_name', 'timestamp'])
+        && request.resource.data.keys().hasAll(
+          ['serial', 'result', 'company', 'company_id', 'source',
+           'scanned_by', 'scanned_by_name', 'timestamp'])
+        && request.resource.data.serial is string
+        && request.resource.data.serial.size() > 0
+        && request.resource.data.serial.size() <= 100
+        && request.resource.data.result in ['new', 'duplicate']
+        && request.resource.data.source in ['manual', 'scan']
+        && request.resource.data.company is string
+        && request.resource.data.company_id is string
+        && request.resource.data.scanned_by == request.auth.uid
+        && request.resource.data.scanned_by_name == get(profilePath()).data.name
+        && request.resource.data.timestamp == request.time;
+      allow update, delete: if false;
+    }
+  }
+}

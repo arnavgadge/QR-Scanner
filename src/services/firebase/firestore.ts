@@ -1,8 +1,14 @@
-﻿import { getFirestore, type Firestore } from 'firebase/firestore';
-import { getFirebaseApp } from './client';
+import type { Firestore } from 'firebase/firestore';
+import { getFirebase } from './client';
 
-/** Firestore instance, or null if Firebase is not configured. Queries arrive in Phase 2+. */
-export function getDb(): Firestore | null {
-  const app = getFirebaseApp();
-  return app ? getFirestore(app) : null;
+/** Firestore collection names (the data model). */
+export const COLLECTIONS = {
+  users: 'users',
+  companies: 'companies',
+  serials: 'serials',
+  scanLog: 'scan_log',
+} as const;
+
+export function getDb(): Firestore {
+  return getFirebase().db;
 }

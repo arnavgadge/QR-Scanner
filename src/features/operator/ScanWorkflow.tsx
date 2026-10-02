@@ -2,12 +2,17 @@ import { useEffect, useRef, type FormEvent } from 'react';
 import { Button } from '../../components/ui/Button';
 import { TextField } from '../../components/ui/TextField';
 import { MOCK_DUPLICATE_EXAMPLE } from '../../services/serial/mockSerialService';
-import { MOCK_COMPANIES } from '../companies/mockCompanies';
+import { ErrorNotice } from '../../components/common/ErrorNotice';
+import { LoadingState } from '../../components/common/LoadingState';
+import { useCompanies } from '../../hooks/useCompanies';
+import { CODE_TYPE_LABEL } from '../companies/codeTypeLabel';
+import { CompanyInfoCard } from '../companies/CompanyInfoCard';
 import { ResultPanel } from './ResultPanel';
 import { useScanFlow } from './useScanFlow';
 
 export function ScanWorkflow() {
-  const flow = useScanFlow();
+  const companies = useCompanies();
+  const flow = useScanFlow(companies.selectedId);
   const { step } = flow;
   const serialRef = useRef<HTMLInputElement>(null);
   const nextRef = useRef<HTMLButtonElement>(null);
@@ -22,7 +27,22 @@ export function ScanWorkflow() {
 
   const busy = step === 'ocr-running' || step === 'checking';
   const showForm = step !== 'result';
-  const company = MOCK_COMPANIES.find((c) => c.id === flow.outcome?.companyId);
+  const company =
+    companies.status === 'ready'
+      ? companies.companies.find((c) => c.id === flow.outcome?.companyId)
+      : undefined;
+
+  if (companies.status === 'loading') {
+    return <LoadingState label="Loading company configuration…" />;
+  }
+  if (companies.status === 'error') {
+    return <ErrorNotice message={companies.message} onRetry={companies.reload} />;
+  }
+  if (companies.companies.length === 0) {
+    return (
+      <ErrorNotice message="Company configuration is unavailable. Contact an administrator." />
+    );
+  }
 
   const onSubmit = (e: FormEvent) => {
     e.preventDefault();
@@ -49,20 +69,23 @@ export function ScanWorkflow() {
               </label>
               <select
                 id="company"
-                value={flow.companyId}
-                onChange={(e) => flow.setCompanyId(e.target.value)}
+                value={companies.selectedId}
+                onChange={(e) => companies.select(e.target.value)}
                 disabled={busy}
                 className="mt-1 min-h-touch w-full rounded-md border border-line bg-surface px-3 text-base"
               >
-                {MOCK_COMPANIES.map((c) => (
+                {companies.companies.map((c) => (
                   <option key={c.id} value={c.id}>
-                    {c.name}
+                    {c.name} — {CODE_TYPE_LABEL[c.codeType]}
                   </option>
                 ))}
               </select>
             </div>
 
+            {companies.selected && <CompanyInfoCard company={companies.selected} />}
+
             <TextField
+              variant="code"
               ref={serialRef}
               label={
                 step === 'ocr-review'
@@ -79,7 +102,11 @@ export function ScanWorkflow() {
               placeholder="e.g. VC-123456"
             />
 
-            <Button type="submit" disabled={busy} className="min-h-14 w-full text-lg">
+            <Button
+              type="submit"
+              disabled={busy || !companies.selected}
+              className="min-h-14 w-full text-lg"
+            >
               {step === 'checking'
                 ? 'Checking…'
                 : step === 'ocr-review'

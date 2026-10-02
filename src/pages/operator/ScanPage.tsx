@@ -1,4 +1,4 @@
-import { ScanWorkflow } from '../../features/operator';
+import { RecentScans, ScanWorkflow } from '../../features/operator';
 
 export default function ScanPage() {
   return (
@@ -7,6 +7,7 @@ export default function ScanPage() {
         Scan serial
       </h1>
       <ScanWorkflow />
+      <RecentScans />
     </section>
   );
 }

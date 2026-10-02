@@ -1,6 +1,10 @@
-﻿/**
+/**
  * Firebase configuration read from Vite env variables (see .env.example).
- * Nothing is hard-coded. If any value is missing the app still runs, with Firebase disabled.
+ * Nothing is hard-coded. If values are missing the app shows a configuration screen
+ * instead of crashing.
+ *
+ * Emulator mode (dev builds only): VITE_USE_FIREBASE_EMULATOR=true points Auth/Firestore at
+ * the local emulators and fills harmless demo values for anything not set.
  */
 export interface FirebaseConfig {
   apiKey: string;
@@ -13,19 +17,45 @@ export interface FirebaseConfig {
 
 const env = import.meta.env;
 
-const raw = {
-  apiKey: env.VITE_FIREBASE_API_KEY,
-  authDomain: env.VITE_FIREBASE_AUTH_DOMAIN,
-  projectId: env.VITE_FIREBASE_PROJECT_ID,
-  storageBucket: env.VITE_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-  appId: env.VITE_FIREBASE_APP_ID,
+/** Never honoured in production builds. */
+export const useEmulator: boolean = env.DEV && env.VITE_USE_FIREBASE_EMULATOR === 'true';
+
+const demo: FirebaseConfig = {
+  apiKey: 'demo-api-key',
+  authDomain: 'localhost',
+  projectId: 'demo-vicimus',
+  storageBucket: 'demo-vicimus.appspot.com',
+  messagingSenderId: '0',
+  appId: '1:0:web:demo',
 };
 
-export const isFirebaseConfigured: boolean = Object.values(raw).every(
-  (v) => typeof v === 'string' && v.trim() !== '',
-);
+const fromEnv: Record<keyof FirebaseConfig, { name: string; value: string | undefined }> = {
+  apiKey: { name: 'VITE_FIREBASE_API_KEY', value: env.VITE_FIREBASE_API_KEY },
+  authDomain: { name: 'VITE_FIREBASE_AUTH_DOMAIN', value: env.VITE_FIREBASE_AUTH_DOMAIN },
+  projectId: { name: 'VITE_FIREBASE_PROJECT_ID', value: env.VITE_FIREBASE_PROJECT_ID },
+  storageBucket: { name: 'VITE_FIREBASE_STORAGE_BUCKET', value: env.VITE_FIREBASE_STORAGE_BUCKET },
+  messagingSenderId: {
+    name: 'VITE_FIREBASE_MESSAGING_SENDER_ID',
+    value: env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  },
+  appId: { name: 'VITE_FIREBASE_APP_ID', value: env.VITE_FIREBASE_APP_ID },
+};
+
+const keys = Object.keys(fromEnv) as (keyof FirebaseConfig)[];
+const present = (v: string | undefined): v is string => typeof v === 'string' && v.trim() !== '';
+
+/** Names of required env variables that are unset (empty when emulator mode supplies defaults). */
+export const missingFirebaseVars: string[] = useEmulator
+  ? []
+  : keys.filter((k) => !present(fromEnv[k].value)).map((k) => fromEnv[k].name);
+
+export const isFirebaseConfigured: boolean = missingFirebaseVars.length === 0;
 
 export const firebaseConfig: FirebaseConfig | null = isFirebaseConfigured
-  ? (raw as FirebaseConfig)
+  ? (Object.fromEntries(
+      keys.map((k) => {
+        const v = fromEnv[k].value;
+        return [k, present(v) ? v : demo[k]];
+      }),
+    ) as unknown as FirebaseConfig)
   : null;

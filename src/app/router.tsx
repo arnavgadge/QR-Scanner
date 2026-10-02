@@ -1,6 +1,7 @@
 ﻿import { lazy, Suspense } from 'react';
 import { createBrowserRouter, Navigate } from 'react-router-dom';
-import { RequireAdmin, RequireAuth, RequireOperator } from '../features/auth';
+import { RequireAdmin, RequireAuth } from '../features/auth';
+import { CompaniesShell } from '../features/companies/CompaniesShell';
 import { AdminLayout } from '../layouts/AdminLayout';
 import { AuthLayout } from '../layouts/AuthLayout';
 import { OperatorLayout } from '../layouts/OperatorLayout';
@@ -27,8 +28,10 @@ export const router = createBrowserRouter([
     element: <RequireAuth />,
     children: [
       {
-        element: <RequireOperator />,
+        // Loads active companies once for everything below (signed-in users only).
+        element: <CompaniesShell />,
         children: [
+          // Operator routes: any signed-in active user (operators and admins).
           {
             element: <OperatorLayout />,
             children: [
@@ -37,20 +40,21 @@ export const router = createBrowserRouter([
               { path: '/history', element: <HistoryPage /> },
             ],
           },
-        ],
-      },
-      {
-        element: <RequireAdmin />,
-        children: [
+          // Admin routes: admins only (UI guard; Firestore rules are the real enforcement).
           {
-            element: <AdminLayout />,
+            element: <RequireAdmin />,
             children: [
-              { path: '/admin', element: lazyEl(<AdminDashboardPage />) },
-              { path: '/admin/import', element: lazyEl(<AdminImportPage />) },
-              { path: '/admin/export', element: lazyEl(<AdminExportPage />) },
-              { path: '/admin/companies', element: lazyEl(<AdminCompaniesPage />) },
-              { path: '/admin/users', element: lazyEl(<AdminUsersPage />) },
-              { path: '/admin/history', element: lazyEl(<AdminHistoryPage />) },
+              {
+                element: <AdminLayout />,
+                children: [
+                  { path: '/admin', element: lazyEl(<AdminDashboardPage />) },
+                  { path: '/admin/import', element: lazyEl(<AdminImportPage />) },
+                  { path: '/admin/export', element: lazyEl(<AdminExportPage />) },
+                  { path: '/admin/companies', element: lazyEl(<AdminCompaniesPage />) },
+                  { path: '/admin/users', element: lazyEl(<AdminUsersPage />) },
+                  { path: '/admin/history', element: lazyEl(<AdminHistoryPage />) },
+                ],
+              },
             ],
           },
         ],

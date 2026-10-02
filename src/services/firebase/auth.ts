@@ -1,8 +1,73 @@
-﻿import { getAuth, type Auth } from 'firebase/auth';
-import { getFirebaseApp } from './client';
+import {
+  onAuthStateChanged,
+  signInWithEmailAndPassword,
+  signOut,
+  type Unsubscribe,
+} from 'firebase/auth';
+import { FirebaseError } from 'firebase/app';
+import { AppError, toAppError } from '../errors';
+import { getFirebase } from './client';
 
-/** Firebase Auth instance, or null if Firebase is not configured. Sign-in arrives in Phase 2. */
-export function getFirebaseAuth(): Auth | null {
-  const app = getFirebaseApp();
-  return app ? getAuth(app) : null;
+/** Minimal identity from Firebase Auth. Role/active status come from users/{uid}, never from here. */
+export interface AuthIdentity {
+  uid: string;
+  email: string | null;
+}
+
+/** The only auth state listener in the app (used by AuthProvider). */
+export function subscribeToAuth(
+  onChange: (identity: AuthIdentity | null) => void,
+  onError: (error: AppError) => void,
+): Unsubscribe {
+  try {
+    return onAuthStateChanged(
+      getFirebase().auth,
+      (u) => onChange(u ? { uid: u.uid, email: u.email } : null),
+      (e) => onError(toAppError(e)),
+    );
+  } catch (e) {
+    // Initialization failure: report asynchronously so callers can treat it like any auth error.
+    const error = toAppError(e);
+    queueMicrotask(() => onError(error));
+    return () => undefined;
+  }
+}
+
+export async function signInWithEmail(email: string, password: string): Promise<void> {
+  try {
+    await signInWithEmailAndPassword(getFirebase().auth, email.trim(), password);
+  } catch (e) {
+    if (e instanceof FirebaseError) {
+      switch (e.code) {
+        case 'auth/invalid-credential':
+        case 'auth/wrong-password':
+        case 'auth/user-not-found':
+        case 'auth/invalid-email':
+          throw new AppError('invalid-credentials', 'Invalid email or password.', { cause: e });
+        case 'auth/network-request-failed':
+          throw new AppError(
+            'network',
+            'Unable to connect. Check your internet connection and try again.',
+            { cause: e },
+          );
+        case 'auth/too-many-requests':
+          throw new AppError('unknown', 'Too many failed attempts. Please wait and try again.', {
+            cause: e,
+          });
+        case 'auth/user-disabled':
+          throw new AppError(
+            'permission-denied',
+            'This account is disabled. Contact an administrator.',
+            {
+              cause: e,
+            },
+          );
+      }
+    }
+    throw toAppError(e, 'Unable to sign in. Please try again.');
+  }
+}
+
+export async function signOutUser(): Promise<void> {
+  await signOut(getFirebase().auth);
 }

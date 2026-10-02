@@ -1,3 +1,4 @@
+import { normalizeSerial } from '../../utils/serial';
 import type { RegisterSerialInput, RegisterSerialOutcome, SerialService } from './index';
 
 /**
@@ -11,7 +12,7 @@ const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
 export const MOCK_DUPLICATE_EXAMPLE = 'VC-000001';
 
 export const mockSerialService: SerialService = {
-  normalize: (raw) => raw.trim().toUpperCase().replace(/\s+/g, ''),
+  normalize: (raw) => normalizeSerial(raw),
 
   async validate(serial) {
     const normalized = mockSerialService.normalize(serial);

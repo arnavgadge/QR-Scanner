@@ -4,10 +4,20 @@ interface Props extends InputHTMLAttributes<HTMLInputElement> {
   label: string;
   error?: string | undefined;
   hint?: string;
+  /** 'code' = large monospace upper-case (serial numbers). */
+  variant?: 'text' | 'code';
   ref?: Ref<HTMLInputElement>;
 }
 
-export function TextField({ label, error, hint, id, className = '', ...rest }: Props) {
+export function TextField({
+  label,
+  error,
+  hint,
+  id,
+  variant = 'text',
+  className = '',
+  ...rest
+}: Props) {
   const autoId = useId();
   const inputId = id ?? autoId;
   const errorId = `${inputId}-error`;
@@ -22,7 +32,7 @@ export function TextField({ label, error, hint, id, className = '', ...rest }: P
         id={inputId}
         aria-invalid={error ? true : undefined}
         aria-describedby={describedBy || undefined}
-        className={`mt-1 min-h-14 w-full rounded-md border bg-surface px-3 font-mono text-xl uppercase ${
+        className={`mt-1 min-h-14 w-full rounded-md border bg-surface px-3 ${variant === 'code' ? 'font-mono text-xl uppercase' : 'text-lg'} ${
           error ? 'border-danger' : 'border-line'
         } ${className}`}
         {...rest}

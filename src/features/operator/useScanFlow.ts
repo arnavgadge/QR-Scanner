@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { MOCK_COMPANIES } from '../companies/mockCompanies';
 import { mockOcrService } from '../../services/ocr/mockOcr';
 import { mockSerialService } from '../../services/serial/mockSerialService';
 import type { ScanResult, SerialSource } from '../../types';
@@ -17,8 +16,7 @@ export interface ScanOutcome {
 }
 
 /** Scan state machine: input -> (ocr) -> checking -> result -> input. No UI here. */
-export function useScanFlow() {
-  const [companyId, setCompanyId] = useState(MOCK_COMPANIES[0]?.id ?? '');
+export function useScanFlow(companyId: string) {
   const [serial, setSerial] = useState('');
   const [step, setStep] = useState<ScanStep>('input');
   const [source, setSource] = useState<SerialSource>('manual');
@@ -92,8 +90,6 @@ export function useScanFlow() {
     step,
     serial,
     setSerial,
-    companyId,
-    setCompanyId,
     photoUrl,
     error,
     outcome,

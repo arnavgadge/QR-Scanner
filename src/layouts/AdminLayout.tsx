@@ -1,4 +1,5 @@
 ﻿import { NavLink, Outlet } from 'react-router-dom';
+import { UserMenu } from '../features/auth';
 
 const items = [
   { to: '/admin', label: 'Dashboard', end: true },
@@ -38,6 +39,7 @@ export function AdminLayout() {
           >
             Operator view
           </NavLink>
+          <UserMenu />
         </nav>
       </header>
       <main className="mx-auto max-w-6xl px-4 py-6">

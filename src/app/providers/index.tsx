@@ -1,7 +1,12 @@
-﻿import type { ReactNode } from 'react';
+import type { ReactNode } from 'react';
+import { AuthProvider } from '../../features/auth';
 import { ErrorBoundary } from './ErrorBoundary';
 
-/** Single place to add app-wide providers (auth in Phase 2). Keep global state minimal. */
+/** Single place for app-wide providers. Keep global state minimal. */
 export function AppProviders({ children }: { children: ReactNode }) {
-  return <ErrorBoundary>{children}</ErrorBoundary>;
+  return (
+    <ErrorBoundary>
+      <AuthProvider>{children}</AuthProvider>
+    </ErrorBoundary>
+  );
 }

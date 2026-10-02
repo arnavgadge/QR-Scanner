@@ -1,4 +1,6 @@
-﻿import { NavLink, Outlet } from 'react-router-dom';
+import { NavLink, Outlet } from 'react-router-dom';
+import { UserMenu } from '../features/auth';
+import { useAuth } from '../hooks/useAuth';
 
 const link = ({ isActive }: { isActive: boolean }) =>
   `inline-flex min-h-touch items-center rounded-md px-4 font-semibold ${
@@ -6,6 +8,8 @@ const link = ({ isActive }: { isActive: boolean }) =>
   }`;
 
 export function OperatorLayout() {
+  const auth = useAuth();
+  const isAdmin = auth.status === 'ready' && auth.user.role === 'admin';
   return (
     <div className="min-h-screen">
       <header className="border-b border-line bg-surface">
@@ -20,6 +24,12 @@ export function OperatorLayout() {
           <NavLink to="/history" className={link}>
             History
           </NavLink>
+          {isAdmin && (
+            <NavLink to="/admin" className={link}>
+              Admin
+            </NavLink>
+          )}
+          <UserMenu />
         </nav>
       </header>
       <main className="mx-auto max-w-5xl px-4 py-6">

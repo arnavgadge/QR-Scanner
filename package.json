@@ -7,7 +7,10 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "emulators": "firebase emulators:start --project demo-vicimus",
+    "seed:dev": "node scripts/seed-dev.mjs",
+    "test:rules": "firebase emulators:exec --only firestore --project demo-vicimus \"node --test firestore-tests/*.test.mjs\""
   },
   "dependencies": {
     "firebase": "^12.19.0",
@@ -17,6 +20,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@firebase/rules-unit-testing": "^5.0.2",
     "@tailwindcss/vite": "^4.3.3",
     "@types/node": "^26.6.4",
     "@types/react": "^19.3.0",
@@ -26,6 +30,8 @@
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.7",
+    "firebase-admin": "^14.5.0",
+    "firebase-tools": "^15.32.1",
     "globals": "^17.13.0",
     "prettier": "^3.9.9",
     "tailwindcss": "^4.3.3",
