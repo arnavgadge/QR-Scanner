@@ -1,4 +1,4 @@
-﻿# Serial Scanning & Label System
+# Serial Scanning & Label System
 
 **Team Vicimus — Industry Project 2**
 
@@ -8,12 +8,12 @@ A web application for a mechanical hardware company that engraves a unique seria
 
 ## Current phase
 
-**Phase 0 — project foundation.**
+**Phase 1 — operator scan UI (mock data only), on top of the Phase 0 foundation.**
 
 > Phase 0 establishes the project foundation. Business functionality will be implemented in subsequent phases.
 
-Implemented: tooling, routing skeleton with placeholder pages, route-guard boundaries, domain types, Firebase/service boundaries, design tokens, error boundary.
-Not implemented: login, Firestore access, serial registration/duplicate detection, OCR, camera, Excel import/export, barcode/QR generation, printing.
+Implemented: tooling, routing skeleton, route-guard boundaries, domain types, Firebase/service boundaries, design tokens, error boundary, and the responsive operator scan screen (manual entry, photo upload/camera, OCR review step, mock check, new/duplicate result, scan next) backed by in-memory mocks (`services/serial/mockSerialService.ts`, `services/ocr/mockOcr.ts`, development-only; nothing is saved).
+Not implemented: login, Firestore access, real serial registration/duplicate detection, real OCR, Excel import/export, barcode/QR generation, printing.
 
 ## Tech stack
 
@@ -77,7 +77,7 @@ Guards (`RequireAuth`, `RequireOperator`, `RequireAdmin`) live in `src/features/
 
 ## Future phases
 
-1. **Phase 1** — Operator UI (responsive, keyboard-first scan screen)
+1. **Phase 1** — Operator UI (done, on mocks)
 2. **Phase 2** — Firebase Auth, roles, Firestore Security Rules
 3. **Phase 3** — Serial validation, company configuration
 4. **Phase 4** — Shared registration with atomic duplicate detection
@@ -85,3 +85,4 @@ Guards (`RequireAuth`, `RequireOperator`, `RequireAdmin`) live in `src/features/
 6. **Phase 6** — Excel import/export/reconciliation
 7. **Phase 7** — Barcode/QR generation and printing
 8. **Phase 8** — Admin workflows, history, hardening
+

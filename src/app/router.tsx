@@ -32,8 +32,8 @@ export const router = createBrowserRouter([
           {
             element: <OperatorLayout />,
             children: [
-              { path: '/', element: <ScanPage route="/" /> },
-              { path: '/scan', element: <ScanPage route="/scan" /> },
+              { path: '/', element: <ScanPage /> },
+              { path: '/scan', element: <ScanPage /> },
               { path: '/history', element: <HistoryPage /> },
             ],
           },

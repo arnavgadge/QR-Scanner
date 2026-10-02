@@ -13,7 +13,10 @@ export function AdminLayout() {
   return (
     <div className="min-h-screen">
       <header className="border-b border-line bg-surface">
-        <nav aria-label="Admin" className="mx-auto flex max-w-6xl flex-wrap items-center gap-2 px-4 py-2">
+        <nav
+          aria-label="Admin"
+          className="mx-auto flex max-w-6xl flex-wrap items-center gap-2 px-4 py-2"
+        >
           <span className="mr-auto font-bold">Admin</span>
           {items.map((i) => (
             <NavLink
@@ -29,7 +32,10 @@ export function AdminLayout() {
               {i.label}
             </NavLink>
           ))}
-          <NavLink to="/" className="inline-flex min-h-touch items-center px-3 text-ink-muted underline">
+          <NavLink
+            to="/"
+            className="inline-flex min-h-touch items-center px-3 text-ink-muted underline"
+          >
             Operator view
           </NavLink>
         </nav>
