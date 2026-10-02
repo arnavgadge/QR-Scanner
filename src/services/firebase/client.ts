@@ -48,8 +48,10 @@ export function getFirebase(): FirebaseServices {
   const db = getFirestore(app);
   if (useEmulator) {
     try {
-      connectAuthEmulator(auth, 'http://localhost:9099', { disableWarnings: true });
-      connectFirestoreEmulator(db, 'localhost', 8080);
+      // 127.0.0.1, not "localhost": the emulators bind IPv4, and "localhost" can resolve to
+      // IPv6 where another local service may be listening on the same port.
+      connectAuthEmulator(auth, 'http://127.0.0.1:9099', { disableWarnings: true });
+      connectFirestoreEmulator(db, '127.0.0.1', 8080);
     } catch {
       // Already connected (hot module reload).
     }

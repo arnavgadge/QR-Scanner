@@ -25,9 +25,9 @@ npm install
 npm run dev         # dev server
 npm run build       # type-check + production build
 npm run lint        # ESLint
-npm run emulators   # local Auth + Firestore emulators (needs Java)
+npm run emulators   # local Auth + Firestore emulators (needs Java 21+)
 npm run seed:dev    # seed the emulators with dev data (emulators must be running)
-npm run test:rules  # Firestore security-rules tests (needs Java; starts the emulator itself)
+npm run test:rules  # Firestore security-rules tests (needs Java 21+; starts the emulator itself)
 ```
 
 ## Environment variables
