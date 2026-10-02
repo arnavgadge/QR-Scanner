@@ -1,0 +1,54 @@
+﻿@import 'tailwindcss';
+
+/*
+ * Design tokens (Phase 0). Semantic meaning for operators:
+ *   BLUE = ACTION    GREEN = SUCCESS / PRINTING    RED = DUPLICATE / STOP
+ * Generates utilities such as bg-action, text-success, border-danger, bg-surface-muted.
+ */
+@theme {
+  --color-action: #1d4ed8;
+  --color-action-hover: #1e40af;
+  --color-action-soft: #dbeafe;
+
+  --color-success: #15803d;
+  --color-success-hover: #166534;
+  --color-success-soft: #dcfce7;
+
+  --color-danger: #b91c1c;
+  --color-danger-hover: #991b1b;
+  --color-danger-soft: #fee2e2;
+
+  --color-info: #475569;
+  --color-info-soft: #f1f5f9;
+
+  --color-surface: #ffffff;
+  --color-surface-muted: #f8fafc;
+  --color-ink: #0f172a;
+  --color-ink-muted: #475569;
+  --color-line: #cbd5e1;
+
+  --font-sans: ui-sans-serif, system-ui, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --font-mono: ui-monospace, 'Cascadia Mono', Consolas, monospace;
+
+  /* Minimum touch target size */
+  --spacing-touch: 2.75rem;
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+  body {
+    margin: 0;
+    min-width: 320px;
+    overflow-x: hidden;
+    background-color: var(--color-surface-muted);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+  }
+  /* Visible keyboard focus everywhere */
+  :focus-visible {
+    outline: 3px solid var(--color-action);
+    outline-offset: 2px;
+  }
+}

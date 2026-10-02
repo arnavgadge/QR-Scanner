@@ -1,0 +1,15 @@
+﻿node_modules
+dist
+dist-ssr
+*.local
+.env
+.env.*
+!.env.example
+npm-debug.log*
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.tsbuildinfo
+.firebase
+firebase-debug.log
