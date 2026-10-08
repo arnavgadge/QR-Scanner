@@ -23,11 +23,20 @@ export function subscribeToAuth(
     return onAuthStateChanged(
       getFirebase().auth,
       (u) => onChange(u ? { uid: u.uid, email: u.email } : null),
-      (e) => onError(toAppError(e)),
+      (e) =>
+        onError(
+          toAppError(
+            e,
+            'Unable to check your sign-in. Check your connection, then reload and sign in again.',
+          ),
+        ),
     );
   } catch (e) {
     // Initialization failure: report asynchronously so callers can treat it like any auth error.
-    const error = toAppError(e);
+    const error = toAppError(
+      e,
+      'Unable to start the sign-in service. Reload the page; if it keeps happening, contact an administrator.',
+    );
     queueMicrotask(() => onError(error));
     return () => undefined;
   }

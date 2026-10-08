@@ -32,7 +32,7 @@ export function TextField({
         id={inputId}
         aria-invalid={error ? true : undefined}
         aria-describedby={describedBy || undefined}
-        className={`mt-1 min-h-14 w-full rounded-md border bg-surface px-3 ${variant === 'code' ? 'font-mono text-xl uppercase' : 'text-lg'} ${
+        className={`mt-1 ${/(^|\s)min-h-/.test(className) ? '' : 'min-h-14'} w-full rounded-md border bg-surface px-3 ${variant === 'code' ? 'font-mono text-xl uppercase' : 'text-lg'} ${
           error ? 'border-danger' : 'border-line'
         } ${className}`}
         {...rest}

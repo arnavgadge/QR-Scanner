@@ -1,4 +1,5 @@
-﻿@import 'tailwindcss';
+@import 'tailwindcss';
+@import './print.css';
 
 /*
  * Design tokens (Phase 0). Semantic meaning for operators:
@@ -17,6 +18,10 @@
   --color-danger: #b91c1c;
   --color-danger-hover: #991b1b;
   --color-danger-soft: #fee2e2;
+
+  /* Caution: medium-confidence OCR readings (needs a careful check, not a stop). */
+  --color-warn: #92400e;
+  --color-warn-soft: #fef3c7;
 
   --color-info: #475569;
   --color-info-soft: #f1f5f9;

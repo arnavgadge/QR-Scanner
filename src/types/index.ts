@@ -17,19 +17,28 @@ export interface User {
   role: UserRole;
   active: boolean;
   createdAt: string | null;
+  /** Display name of the admin who last changed role/active ('' if never changed). */
+  updatedByName: string;
+  updatedAt: string | null;
 }
 
 /** companies/{companyId} */
 export interface Company {
   id: string;
   name: string;
-  /** Label OUTPUT format (not an input mode). */
-  codeType: CodeType;
+  /**
+   * Label OUTPUT format (not an input mode). `null` means the stored value is missing or not a
+   * supported type: the company is then shown as "not configured" and no label is ever generated
+   * (nothing silently falls back to barcode or QR).
+   */
+  codeType: CodeType | null;
   /** Serial format pattern, e.g. "13WAA#########"; interpreted in Phase 3. */
   serialFormat: string;
   active: boolean;
   createdAt: string | null;
   updatedAt: string | null;
+  /** Display name of the admin who last changed this company ('' if never changed via the admin UI). */
+  updatedByName: string;
 }
 
 /** serials/{serial} — the serial is the document ID. */
@@ -44,6 +53,34 @@ export interface SerialRecord {
   /** Firebase UID of the operator. */
   scannedBy: string;
   scannedByName: string;
+}
+
+/** import_history/{autoId} — one entry per Excel import (admin-only). */
+export interface ImportHistoryEntry {
+  id: string;
+  filename: string;
+  importedBy: string;
+  importedByName: string;
+  importedAt: string | null;
+  totalRows: number;
+  /** Records actually created. */
+  newCount: number;
+  skipped: number;
+  conflicts: number;
+  duplicates: number;
+  invalid: number;
+  status: 'completed' | 'failed';
+  error: string;
+}
+
+/** export_history/{autoId} — one entry per Excel export (admin-only). */
+export interface ExportHistoryEntry {
+  id: string;
+  filename: string;
+  exportedBy: string;
+  exportedByName: string;
+  exportedAt: string | null;
+  recordCount: number;
 }
 
 /** scan_log/{autoId} — every attempt, including duplicates. */

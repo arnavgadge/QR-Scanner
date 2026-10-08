@@ -8,7 +8,10 @@ export type RecentScansState =
   | { status: 'error'; message: string }
   | { status: 'ready'; scans: ScanLog[] };
 
-/** One limited query on mount; call `reload` to refresh. No real-time listener (deliberate). */
+/**
+ * One limited query on mount. `reload` shows the loading state (for retry); `refresh` re-queries
+ * silently, keeping the current rows visible (after a scan). No real-time listener (deliberate).
+ */
 export function useRecentScans(count = 20) {
   const [state, setState] = useState<RecentScansState>({ status: 'loading' });
   const [attempt, setAttempt] = useState(0);
@@ -21,10 +24,11 @@ export function useRecentScans(count = 20) {
       })
       .catch((e: unknown) => {
         if (!cancelled) {
-          setState({
-            status: 'error',
-            message: toAppError(e, 'Unable to load recent scans.').message,
-          });
+          setState((prev) =>
+            prev.status === 'ready'
+              ? prev // a failed background refresh keeps the rows already on screen
+              : { status: 'error', message: toAppError(e, 'Unable to load recent scans.').message },
+          );
         }
       });
     return () => {
@@ -37,5 +41,9 @@ export function useRecentScans(count = 20) {
     setAttempt((n) => n + 1);
   }, []);
 
-  return { state, reload };
+  const refresh = useCallback(() => setAttempt((n) => n + 1), []);
+
+  return { state, reload, refresh };
 }
+
+export type RecentScansController = ReturnType<typeof useRecentScans>;

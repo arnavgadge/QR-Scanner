@@ -1,6 +1,6 @@
 import { ErrorNotice } from '../../components/common/ErrorNotice';
 import { LoadingState } from '../../components/common/LoadingState';
-import { useRecentScans } from '../../hooks/useRecentScans';
+import type { RecentScansController } from '../../hooks/useRecentScans';
 import type { ScanLog } from '../../types';
 import { formatDateTime } from '../../utils/format';
 
@@ -14,8 +14,9 @@ function ResultBadge({ result }: { result: ScanLog['result'] }) {
   );
 }
 
-export function RecentScans() {
-  const { state, reload } = useRecentScans(20);
+/** Presentational: the owning page runs the (limited) query and can refresh it after a scan. */
+export function RecentScans({ recent }: { recent: RecentScansController }) {
+  const { state, reload } = recent;
 
   return (
     <section aria-labelledby="recent-title" className="mt-10">

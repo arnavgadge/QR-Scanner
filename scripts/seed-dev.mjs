@@ -20,6 +20,12 @@ const now = FieldValue.serverTimestamp();
 const users = [
   { uid: 'dev-admin', name: 'Dev Admin', email: 'admin@example.test', role: 'admin' },
   { uid: 'dev-operator', name: 'Dev Operator', email: 'operator@example.test', role: 'operator' },
+  {
+    uid: 'dev-operator-2',
+    name: 'Dev Operator 2',
+    email: 'operator2@example.test',
+    role: 'operator',
+  },
 ];
 
 for (const u of users) {
@@ -48,11 +54,22 @@ for (const c of companies) {
   await db.doc(`companies/${c.id}`).set({ ...c, active: true, created_at: now, updated_at: now });
 }
 
-await db.doc('serials/13WAA00101A26').set({
-  serial: '13WAA00101A26',
+await db.doc('serials/13WAA000000001').set({
+  serial: '13WAA000000001',
   part_no: '',
   company: 'Company A',
   company_id: 'company-a',
+  source: 'manual',
+  scanned_at: now,
+  scanned_by: 'dev-operator',
+  scanned_by_name: 'Dev Operator',
+});
+
+await db.doc('serials/27BXX0000001').set({
+  serial: '27BXX0000001',
+  part_no: 'PN-200',
+  company: 'Company B',
+  company_id: 'company-b',
   source: 'manual',
   scanned_at: now,
   scanned_by: 'dev-operator',
@@ -69,10 +86,12 @@ const log = (serial, result, company, company_id, offsetMin) => ({
   scanned_by_name: 'Dev Operator',
   timestamp: new Date(Date.now() - offsetMin * 60_000),
 });
-await db.collection('scan_log').add(log('13WAA00101A26', 'new', 'Company A', 'company-a', 10));
-await db.collection('scan_log').add(log('13WAA00101A26', 'duplicate', 'Company A', 'company-a', 5));
+await db.collection('scan_log').add(log('13WAA000000001', 'new', 'Company A', 'company-a', 10));
+await db
+  .collection('scan_log')
+  .add(log('13WAA000000001', 'duplicate', 'Company A', 'company-a', 5));
 await db.collection('scan_log').add(log('27BXX0000001', 'new', 'Company B', 'company-b', 2));
 
 console.log(
-  'Seeded emulators: admin@example.test / operator@example.test (password: devpassword123)',
+  'Seeded emulators: admin@example.test / operator@example.test / operator2@example.test (password: devpassword123)',
 );

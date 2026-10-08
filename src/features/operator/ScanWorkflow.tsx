@@ -1,36 +1,60 @@
 import { useEffect, useRef, type FormEvent } from 'react';
-import { Button } from '../../components/ui/Button';
-import { TextField } from '../../components/ui/TextField';
-import { MOCK_DUPLICATE_EXAMPLE } from '../../services/serial/mockSerialService';
 import { ErrorNotice } from '../../components/common/ErrorNotice';
 import { LoadingState } from '../../components/common/LoadingState';
+import { Button } from '../../components/ui/Button';
+import { TextField } from '../../components/ui/TextField';
 import { useCompanies } from '../../hooks/useCompanies';
-import { CODE_TYPE_LABEL } from '../companies/codeTypeLabel';
+import { OCR_PROVIDER_LABEL } from '../../services/ocr';
+import { USE_MOCK_OCR } from '../../config/ocr';
+import { describeSerialFormat, ocrFormatFeedback } from '../../services/serial/serialFormat';
+import { codeTypeLabel } from '../companies/codeTypeLabel';
 import { CompanyInfoCard } from '../companies/CompanyInfoCard';
+import { OcrResultPanel } from './OcrResultPanel';
+import { PhotoCapture } from './PhotoCapture';
+import { PhotoPreview } from './PhotoPreview';
 import { ResultPanel } from './ResultPanel';
 import { useScanFlow } from './useScanFlow';
 
-export function ScanWorkflow() {
+interface Props {
+  /** Called after a serial was verified (new or duplicate) so recent scans can refresh. */
+  onVerified?: () => void;
+}
+
+const IMAGE_ACCEPT = 'image/*';
+
+export function ScanWorkflow({ onVerified }: Props) {
   const companies = useCompanies();
-  const flow = useScanFlow(companies.selectedId);
-  const { step } = flow;
+  const flow = useScanFlow(companies.selected, onVerified);
+  const { state } = flow;
   const serialRef = useRef<HTMLInputElement>(null);
   const nextRef = useRef<HTMLButtonElement>(null);
-  const uploadRef = useRef<HTMLInputElement>(null);
+  const retryRef = useRef<HTMLButtonElement>(null);
+  const ocrRetakeRef = useRef<HTMLButtonElement>(null);
   const cameraRef = useRef<HTMLInputElement>(null);
+  const uploadRef = useRef<HTMLInputElement>(null);
+  const { photoNotice } = flow;
 
-  // Keyboard-first: keep focus where the operator types next.
+  // Keyboard-first: keep focus where the operator acts next.
   useEffect(() => {
-    if (step === 'input' || step === 'ocr-review') serialRef.current?.focus();
-    if (step === 'result') nextRef.current?.focus();
-  }, [step]);
+    if (state.step === 'input') serialRef.current?.focus();
+    if (state.step === 'result') nextRef.current?.focus();
+    if (state.step === 'failed') retryRef.current?.focus();
+    if (state.step === 'ocr-error') ocrRetakeRef.current?.focus();
+    // `companies.status`: the form only exists once the company list has loaded, so focus must be
+    // (re)applied then, otherwise a freshly loaded page leaves the focus on <body>.
+  }, [state.step, companies.status]);
 
-  const busy = step === 'ocr-running' || step === 'checking';
-  const showForm = step !== 'result';
-  const company =
-    companies.status === 'ready'
-      ? companies.companies.find((c) => c.id === flow.outcome?.companyId)
-      : undefined;
+  // A cancelled camera picker usually means the camera could not be opened (e.g. permission denied).
+  useEffect(() => {
+    const el = cameraRef.current;
+    if (!el) return;
+    const onCancel = () =>
+      photoNotice(
+        'No photo was taken. Camera access was not available, or the camera was closed. Choose a photo or enter the serial manually.',
+      );
+    el.addEventListener('cancel', onCancel);
+    return () => el.removeEventListener('cancel', onCancel);
+  }, [photoNotice, companies.status]);
 
   if (companies.status === 'loading') {
     return <LoadingState label="Loading company configuration…" />;
@@ -40,29 +64,111 @@ export function ScanWorkflow() {
   }
   if (companies.companies.length === 0) {
     return (
-      <ErrorNotice message="Company configuration is unavailable. Contact an administrator." />
+      <ErrorNotice
+        message="No active company is configured, so serials cannot be checked yet. Ask an administrator to add or activate a company, then reload this page."
+        onRetry={companies.reload}
+      />
     );
   }
 
-  const onSubmit = (e: FormEvent) => {
+  const selected = companies.selected;
+  // While verifying, keep showing the screen the operator came from (disabled).
+  const view = state.step === 'checking' ? state.from : state;
+  const busy = state.step === 'checking';
+  const inPhotoMode =
+    view.step === 'photo-start' ||
+    view.step === 'photo-selected' ||
+    view.step === 'ocr-running' ||
+    view.step === 'ocr-result' ||
+    view.step === 'ocr-error';
+  const showCompany =
+    view.step !== 'result' && view.step !== 'failed' && view.step !== 'ocr-running';
+  // Recomputed on every render from the company selected NOW and the text in the field NOW.
+  const ocrFeedback =
+    view.step === 'ocr-result' && selected
+      ? ocrFormatFeedback(flow.serial, view.reading.text, selected.serialFormat)
+      : { mismatch: false, suggestion: null };
+  const showModeToggle = view.step === 'input' || view.step === 'photo-start';
+
+  // Enter in the field and the button both land here: one verification path.
+  const onSubmitManual = (e: FormEvent) => {
     e.preventDefault();
     if (!busy) void flow.submit();
   };
 
+  const takePhoto = () => cameraRef.current?.click();
+  const choosePhoto = () => uploadRef.current?.click();
   const onFile = (file: File | undefined) => {
-    if (file) void flow.submitPhoto(file);
+    if (file) flow.selectPhoto(file);
+  };
+  const retakeAndOpen = () => {
+    flow.retake();
+    // Opened inside the click handler so the browser allows the picker/camera.
+    (window.matchMedia('(max-width: 767px)').matches ? cameraRef : uploadRef).current?.click();
   };
 
   return (
     <div className="grid gap-6 lg:grid-cols-2">
-      <div>
-        <p className="mb-4 rounded-md bg-info-soft px-3 py-2 text-sm text-info">
-          Development mock: no data is saved. Try{' '}
-          <span className="font-mono">{MOCK_DUPLICATE_EXAMPLE}</span> to see a duplicate.
-        </p>
+      {/* Hidden native inputs: "capture" opens the rear camera on phones; both stay mounted. */}
+      <input
+        ref={cameraRef}
+        type="file"
+        accept={IMAGE_ACCEPT}
+        capture="environment"
+        className="hidden"
+        aria-label="Take photo of serial"
+        data-testid="camera-input"
+        onChange={(e) => {
+          onFile(e.target.files?.[0]);
+          e.target.value = '';
+        }}
+      />
+      <input
+        ref={uploadRef}
+        type="file"
+        accept={IMAGE_ACCEPT}
+        className="hidden"
+        aria-label="Choose photo of serial"
+        data-testid="upload-input"
+        onChange={(e) => {
+          onFile(e.target.files?.[0]);
+          e.target.value = '';
+        }}
+      />
 
-        {showForm && (
-          <form onSubmit={onSubmit} className="space-y-4" noValidate>
+      <div className="space-y-4">
+        {USE_MOCK_OCR && inPhotoMode && (
+          <p
+            role="note"
+            className="rounded-md bg-warn-soft px-3 py-2 text-sm font-semibold text-warn"
+          >
+            DEVELOPMENT: using {OCR_PROVIDER_LABEL}. Photos are not really read.
+          </p>
+        )}
+
+        {showModeToggle && (
+          <div role="group" aria-label="Input method" className="grid grid-cols-2 gap-2">
+            <Button
+              variant={view.step === 'input' ? 'primary' : 'secondary'}
+              aria-pressed={view.step === 'input'}
+              onClick={flow.switchToManual}
+              className="min-h-14"
+            >
+              Enter Manually
+            </Button>
+            <Button
+              variant={view.step === 'photo-start' ? 'primary' : 'secondary'}
+              aria-pressed={view.step === 'photo-start'}
+              onClick={flow.startPhoto}
+              className="min-h-14"
+            >
+              Upload Photo (OCR)
+            </Button>
+          </div>
+        )}
+
+        {showCompany && (
+          <div className="space-y-3">
             <div>
               <label htmlFor="company" className="block text-sm font-semibold">
                 Company
@@ -76,124 +182,130 @@ export function ScanWorkflow() {
               >
                 {companies.companies.map((c) => (
                   <option key={c.id} value={c.id}>
-                    {c.name} — {CODE_TYPE_LABEL[c.codeType]}
+                    {c.name} — {codeTypeLabel(c.codeType)}
                   </option>
                 ))}
               </select>
             </div>
+            {selected && <CompanyInfoCard company={selected} />}
+          </div>
+        )}
 
-            {companies.selected && <CompanyInfoCard company={companies.selected} />}
-
+        {view.step === 'input' && (
+          <form onSubmit={onSubmitManual} className="space-y-4" noValidate>
             <TextField
               variant="code"
               ref={serialRef}
-              label={
-                step === 'ocr-review'
-                  ? 'Serial read from photo — check and correct'
-                  : 'Serial number'
-              }
+              label="Serial number"
               value={flow.serial}
               onChange={(e) => flow.setSerial(e.target.value)}
-              error={flow.error}
-              disabled={busy}
+              error={flow.validationError}
+              hint={selected ? `Format: ${describeSerialFormat(selected.serialFormat)}` : undefined}
+              readOnly={busy}
               autoComplete="off"
               autoCapitalize="characters"
               spellCheck={false}
-              placeholder="e.g. VC-123456"
             />
-
             <Button
               type="submit"
-              disabled={busy || !companies.selected}
+              disabled={busy || !selected || selected.codeType === null}
               className="min-h-14 w-full text-lg"
             >
-              {step === 'checking'
-                ? 'Checking…'
-                : step === 'ocr-review'
-                  ? 'Confirm and check'
-                  : 'Check serial'}
+              {busy ? 'Checking…' : 'Check serial'}
             </Button>
-
-            <div className="border-t border-line pt-4">
-              <p className="mb-2 text-sm font-semibold">Or use a photo</p>
-              <div className="flex flex-col gap-3 sm:flex-row">
-                <Button
-                  variant="secondary"
-                  disabled={busy}
-                  onClick={() => cameraRef.current?.click()}
-                  className="flex-1 md:hidden"
-                >
-                  Take photo
-                </Button>
-                <Button
-                  variant="secondary"
-                  disabled={busy}
-                  onClick={() => uploadRef.current?.click()}
-                  className="flex-1"
-                >
-                  Upload photo
-                </Button>
-              </div>
-              {/* Hidden native inputs; "capture" opens the rear camera on phones. */}
-              <input
-                ref={cameraRef}
-                type="file"
-                accept="image/*"
-                capture="environment"
-                className="hidden"
-                aria-label="Take photo of serial"
-                onChange={(e) => {
-                  onFile(e.target.files?.[0]);
-                  e.target.value = '';
-                }}
-              />
-              <input
-                ref={uploadRef}
-                type="file"
-                accept="image/*"
-                className="hidden"
-                aria-label="Upload photo of serial"
-                onChange={(e) => {
-                  onFile(e.target.files?.[0]);
-                  e.target.value = '';
-                }}
-              />
-            </div>
           </form>
+        )}
+
+        {view.step === 'photo-start' && (
+          <PhotoCapture
+            notice={view.notice}
+            onTake={takePhoto}
+            onChoose={choosePhoto}
+            onManual={flow.switchToManual}
+          />
+        )}
+
+        {(view.step === 'photo-selected' || view.step === 'ocr-running') && (
+          <PhotoPreview
+            photo={view.photo}
+            processing={view.step === 'ocr-running'}
+            onRead={() => void flow.readSerial()}
+            onRetake={retakeAndOpen}
+            onCancel={flow.switchToManual}
+          />
+        )}
+
+        {view.step === 'ocr-result' && selected && (
+          <OcrResultPanel
+            key={view.photo.url}
+            photo={view.photo}
+            reading={view.reading}
+            company={selected}
+            serial={flow.serial}
+            formatMismatch={ocrFeedback.mismatch}
+            suggestion={ocrFeedback.suggestion}
+            onSerialChange={flow.setSerial}
+            error={flow.validationError}
+            busy={busy}
+            onConfirm={() => void flow.submit()}
+            onRetake={retakeAndOpen}
+            onManual={flow.switchToManual}
+          />
+        )}
+
+        {view.step === 'ocr-error' && (
+          <div
+            role="alert"
+            className="space-y-4 rounded-lg border-2 border-danger bg-danger-soft p-5"
+          >
+            <p className="text-2xl font-extrabold text-danger">Photo not read</p>
+            <p className="text-lg">{view.message}</p>
+            <p className="text-ink-muted">Nothing was registered.</p>
+            <div className="flex flex-col gap-3">
+              <Button
+                ref={ocrRetakeRef}
+                onClick={retakeAndOpen}
+                className="min-h-16 w-full text-xl"
+              >
+                Retake Photo
+              </Button>
+              <Button
+                variant="secondary"
+                onClick={flow.switchToManual}
+                className="min-h-14 w-full text-lg"
+              >
+                Enter Manually
+              </Button>
+            </div>
+          </div>
         )}
       </div>
 
       <div aria-live="polite">
-        {step === 'result' && flow.outcome && (
-          <ResultPanel
-            outcome={flow.outcome}
-            company={company}
-            nextRef={nextRef}
-            onNext={flow.reset}
-          />
+        {state.step === 'result' && (
+          <ResultPanel result={state.result} nextRef={nextRef} onNext={flow.next} />
         )}
-        {step !== 'result' && flow.photoUrl && (
-          <figure className="rounded-lg border border-line bg-surface p-3">
-            <img
-              src={flow.photoUrl}
-              alt="Captured serial"
-              className="max-h-80 w-full rounded object-contain"
-            />
-            <figcaption className="mt-2 text-sm text-ink-muted">
-              {step === 'ocr-running'
-                ? 'Reading serial from photo…'
-                : 'Photo captured. Confirm the text next to it.'}
-            </figcaption>
-            {step === 'ocr-review' && (
-              <Button variant="secondary" onClick={flow.reset} className="mt-2 w-full">
-                Discard photo
-              </Button>
-            )}
-          </figure>
+        {state.step === 'failed' && (
+          <div role="alert" className="rounded-lg border-2 border-danger bg-danger-soft p-5">
+            <p className="text-2xl font-extrabold text-danger">Not verified</p>
+            <p className="mt-2 text-lg">{state.message}</p>
+            <p className="mt-1 text-ink-muted">
+              Nothing was registered. Do not treat this serial as new.
+            </p>
+            <Button ref={retryRef} onClick={flow.retry} className="mt-4 min-h-14 w-full text-lg">
+              Try again
+            </Button>
+          </div>
         )}
-        {step === 'checking' && <p className="text-lg font-semibold text-info">Checking serial…</p>}
-        {step === 'input' && !flow.photoUrl && (
-          <p className="text-ink-muted">Type a serial and press Enter, or use a photo.</p>
+        {state.step === 'checking' && <LoadingState label="Checking serial…" />}
+        {state.step === 'input' && (
+          <p className="text-ink-muted">Type a serial and press Enter or click “Check serial”.</p>
+        )}
+        {state.step === 'photo-start' && (
+          <p className="hidden text-ink-muted lg:block">
+            Take or choose a photo of the engraved serial. You will review and confirm what was read
+            before anything is checked.
+          </p>
         )}
       </div>
     </div>

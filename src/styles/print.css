@@ -1,0 +1,41 @@
+/*
+ * Label printing (Phase 8). Deliberately narrow: nothing here affects the screen, and nothing
+ * affects printing unless a LABEL print is in progress (the print service puts the class
+ * `label-printing` on <body> only around window.print()). An ordinary Ctrl+P on any other page
+ * is untouched.
+ *
+ * The page size/margins (@page) are NOT written here: they come from LABEL_SIZE_MM in
+ * src/config/label.ts and are injected by the print service for the duration of the print.
+ */
+
+/* The print copy of the label lives outside the app (portal on <body>) and is never shown on screen. */
+.label-print-root {
+  display: none;
+}
+
+@media print {
+  body.label-printing {
+    margin: 0;
+    padding: 0;
+    background: #fff;
+  }
+
+  /* Hide the whole app (header, navigation, recent scans, controls, ...) and anything else. */
+  body.label-printing > :not(.label-print-root) {
+    display: none !important;
+  }
+
+  /* Show only the label. */
+  body.label-printing > .label-print-root {
+    display: block !important;
+    margin: 0;
+    padding: 0;
+  }
+
+  .label-print-root {
+    break-inside: avoid;
+    page-break-inside: avoid;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}

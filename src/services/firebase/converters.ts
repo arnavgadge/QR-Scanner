@@ -3,6 +3,8 @@ import { AppError } from '../errors';
 import type {
   CodeType,
   Company,
+  ExportHistoryEntry,
+  ImportHistoryEntry,
   ScanLog,
   ScanResult,
   SerialRecord,
@@ -63,6 +65,21 @@ export function parseUser(uid: string, data: DocumentData): User {
     role: oneOf(ROLES, d, 'role', ctx),
     active: bool(d, 'active', ctx),
     createdAt: iso(d.created_at),
+    updatedByName: typeof d.updated_by_name === 'string' ? d.updated_by_name : '',
+    updatedAt: iso(d.updated_at),
+  };
+}
+
+export function parseExportHistory(id: string, data: DocumentData): ExportHistoryEntry {
+  const d: Raw = data;
+  const ctx = `export_history/${id}`;
+  return {
+    id,
+    filename: str(d, 'filename', ctx),
+    exportedBy: str(d, 'exported_by', ctx),
+    exportedByName: str(d, 'exported_by_name', ctx),
+    exportedAt: iso(d.exported_at),
+    recordCount: count(d, 'record_count', ctx),
   };
 }
 
@@ -72,11 +89,14 @@ export function parseCompany(id: string, data: DocumentData): Company {
   return {
     id,
     name: str(d, 'name', ctx),
-    codeType: oneOf(CODE_TYPES, d, 'code_type', ctx),
+    // Lenient on purpose: a missing/unsupported code_type must stay visible as "not configured"
+    // (and block label generation) rather than making the whole company disappear.
+    codeType: CODE_TYPES.find((t) => t === d.code_type) ?? null,
     serialFormat: str(d, 'serial_format', ctx),
     active: bool(d, 'active', ctx),
     createdAt: iso(d.created_at),
     updatedAt: iso(d.updated_at),
+    updatedByName: typeof d.updated_by_name === 'string' ? d.updated_by_name : '',
   };
 }
 
@@ -92,6 +112,32 @@ export function parseSerial(id: string, data: DocumentData): SerialRecord {
     scannedAt: iso(d.scanned_at),
     scannedBy: str(d, 'scanned_by', ctx),
     scannedByName: str(d, 'scanned_by_name', ctx),
+  };
+}
+
+function count(d: Raw, key: string, ctx: string): number {
+  const v = d[key];
+  if (typeof v !== 'number' || !Number.isInteger(v) || v < 0) throw malformed(ctx, key);
+  return v;
+}
+
+export function parseImportHistory(id: string, data: DocumentData): ImportHistoryEntry {
+  const d: Raw = data;
+  const ctx = `import_history/${id}`;
+  return {
+    id,
+    filename: str(d, 'filename', ctx),
+    importedBy: str(d, 'imported_by', ctx),
+    importedByName: str(d, 'imported_by_name', ctx),
+    importedAt: iso(d.imported_at),
+    totalRows: count(d, 'total_rows', ctx),
+    newCount: count(d, 'new', ctx),
+    skipped: count(d, 'skipped', ctx),
+    conflicts: count(d, 'conflicts', ctx),
+    duplicates: count(d, 'duplicates', ctx),
+    invalid: count(d, 'invalid', ctx),
+    status: oneOf(['completed', 'failed'] as const, d, 'status', ctx),
+    error: typeof d.error === 'string' ? d.error : '',
   };
 }
 

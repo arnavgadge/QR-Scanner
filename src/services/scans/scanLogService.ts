@@ -4,6 +4,7 @@ import { parseScanLog } from '../firebase/converters';
 import { toAppError } from '../errors';
 import type { ScanLog } from '../../types';
 
+import { logWarn } from '../../utils/log';
 const MAX_RECENT = 50;
 
 /**
@@ -21,7 +22,7 @@ export async function getRecentScans(count = 20): Promise<ScanLog[]> {
       try {
         scans.push(parseScanLog(d.id, d.data()));
       } catch (e) {
-        console.warn('Skipping malformed scan_log document', d.id, e);
+        logWarn('Skipping malformed scan_log document', d.id, e);
       }
     }
     return scans;

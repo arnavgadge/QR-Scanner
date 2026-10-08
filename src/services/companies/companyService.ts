@@ -4,6 +4,7 @@ import { parseCompany } from '../firebase/converters';
 import { toAppError } from '../errors';
 import type { Company } from '../../types';
 
+import { logWarn } from '../../utils/log';
 const MSG = 'Unable to load company configuration.';
 
 /** One read of all active companies (a handful of documents), sorted by name. */
@@ -17,7 +18,7 @@ export async function getActiveCompanies(): Promise<Company[]> {
       try {
         companies.push(parseCompany(d.id, d.data()));
       } catch (e) {
-        console.warn('Skipping malformed company document', d.id, e);
+        logWarn('Skipping malformed company document', d.id, e);
       }
     }
     return companies.sort((a, b) => a.name.localeCompare(b.name));

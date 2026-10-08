@@ -1,16 +1,12 @@
-﻿/** Excel boundary (XLSX library arrives in a later phase). */
-export interface ExcelImportRow {
-  serial: string;
-  partNumber: string;
-  companyId?: string;
-}
-
-export interface ExcelImportIssue {
-  row: number;
-  message: string;
-}
-
-export interface ExcelService {
-  parseImport(file: File): Promise<{ rows: ExcelImportRow[]; issues: ExcelImportIssue[] }>;
-  exportRecords(records: import('../../types').SerialRecord[]): Promise<Blob>;
-}
+/** Excel boundary: admin export (Phase 5) and admin import / safe merge (Phase 4). */
+export { exportSerialsToExcel, exportFilename } from './exportService';
+export type { ExportPhase, ExportResult } from './exportService';
+export { previewImportFile, confirmImportPreview } from './importService';
+export { getImportHistory } from './importHistoryService';
+export type {
+  ClassifiedRow,
+  ImportCounts,
+  ImportOutcome,
+  ImportPreview,
+  RowClass,
+} from './importTypes';

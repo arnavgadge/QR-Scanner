@@ -22,7 +22,7 @@ export function OperatorLayout() {
             Scan
           </NavLink>
           <NavLink to="/history" className={link}>
-            History
+            Recent scans
           </NavLink>
           {isAdmin && (
             <NavLink to="/admin" className={link}>

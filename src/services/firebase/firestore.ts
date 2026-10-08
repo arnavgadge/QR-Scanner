@@ -7,6 +7,8 @@ export const COLLECTIONS = {
   companies: 'companies',
   serials: 'serials',
   scanLog: 'scan_log',
+  importHistory: 'import_history',
+  exportHistory: 'export_history',
 } as const;
 
 export function getDb(): Firestore {

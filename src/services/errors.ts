@@ -1,5 +1,6 @@
 import { FirebaseError } from 'firebase/app';
 
+import { logError } from '../utils/log';
 export type AppErrorCode =
   | 'config'
   | 'invalid-credentials'
@@ -23,7 +24,10 @@ export class AppError extends Error {
 const NETWORK_MESSAGE = 'Unable to connect to the database. Please try again.';
 
 /** Maps any thrown value to an AppError with a human-readable message. Never leaks raw errors. */
-export function toAppError(e: unknown, fallback = 'Something went wrong. Please try again.') {
+export function toAppError(
+  e: unknown,
+  fallback = 'The operation could not be completed. Nothing was changed. Please try again.',
+) {
   if (e instanceof AppError) return e;
   if (e instanceof FirebaseError) {
     switch (e.code) {
@@ -43,6 +47,6 @@ export function toAppError(e: unknown, fallback = 'Something went wrong. Please 
         return new AppError('not-found', 'The requested data was not found.', { cause: e });
     }
   }
-  console.error('Unhandled service error', e);
+  logError('Unhandled service error', e);
   return new AppError('unknown', fallback, { cause: e });
 }

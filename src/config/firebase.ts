@@ -18,16 +18,22 @@ export interface FirebaseConfig {
 const env = import.meta.env;
 
 /** Never honoured in production builds. */
-export const useEmulator: boolean = env.DEV && env.VITE_USE_FIREBASE_EMULATOR === 'true';
+// Written with DIRECT `import.meta.env.DEV` references (not via an `env` alias) so the bundler can
+// replace DEV with `false` in a production build and drop every emulator-only line below.
+export const useEmulator: boolean =
+  import.meta.env.DEV && import.meta.env.VITE_USE_FIREBASE_EMULATOR === 'true';
 
-const demo: FirebaseConfig = {
-  apiKey: 'demo-api-key',
-  authDomain: 'localhost',
-  projectId: 'demo-vicimus',
-  storageBucket: 'demo-vicimus.appspot.com',
-  messagingSenderId: '0',
-  appId: '1:0:web:demo',
-};
+/** Harmless placeholder values for the emulators only (absent from production bundles). */
+const demo: FirebaseConfig | null = useEmulator
+  ? {
+      apiKey: 'demo-api-key',
+      authDomain: 'localhost',
+      projectId: 'demo-vicimus',
+      storageBucket: 'demo-vicimus.appspot.com',
+      messagingSenderId: '0',
+      appId: '1:0:web:demo',
+    }
+  : null;
 
 const fromEnv: Record<keyof FirebaseConfig, { name: string; value: string | undefined }> = {
   apiKey: { name: 'VITE_FIREBASE_API_KEY', value: env.VITE_FIREBASE_API_KEY },
@@ -47,7 +53,14 @@ const present = (v: string | undefined): v is string => typeof v === 'string' &&
 /** Names of required env variables that are unset (empty when emulator mode supplies defaults). */
 export const missingFirebaseVars: string[] = useEmulator
   ? []
-  : keys.filter((k) => !present(fromEnv[k].value)).map((k) => fromEnv[k].name);
+  : [
+      ...keys.filter((k) => !present(fromEnv[k].value)).map((k) => fromEnv[k].name),
+      // Fail closed: a "demo-" project id exists only for the local emulators. If it ever reaches a
+      // build that is NOT running in emulator mode, refuse to start rather than talk to a wrong project.
+      ...(/^demo-/i.test((fromEnv.projectId.value ?? '').trim())
+        ? ['VITE_FIREBASE_PROJECT_ID (a "demo-" project id is only valid with the emulators)']
+        : []),
+    ];
 
 export const isFirebaseConfigured: boolean = missingFirebaseVars.length === 0;
 
@@ -55,7 +68,7 @@ export const firebaseConfig: FirebaseConfig | null = isFirebaseConfigured
   ? (Object.fromEntries(
       keys.map((k) => {
         const v = fromEnv[k].value;
-        return [k, present(v) ? v : demo[k]];
+        return [k, present(v) ? v : (demo?.[k] ?? '')];
       }),
     ) as unknown as FirebaseConfig)
   : null;
