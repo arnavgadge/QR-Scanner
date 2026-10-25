@@ -112,6 +112,61 @@ dataset, training on Kaggle, and choosing the checkpoint on this computer with t
 scripts/check-all.sh           # or --quick: skips the Windows installer and the ML training epoch
 ```
 
+## Next steps (to do)
+
+### 1. GitHub
+- [ ] Make `arnavgadge/QR-Scanner` **private** (owner: Settings → General → Danger zone → Change
+      visibility). Do this before pushing: the repository holds the project report and the desktop
+      and ML code.
+- [ ] Owner adds the second developer as a collaborator (Settings → Collaborators → Add people);
+      accept the invitation.
+- [ ] Push with a **classic** personal access token (scope `repo`). A fine-grained token cannot
+      reach another person's personal repository. Then run `git push origin main`.
+
+### 2. ML round 2: choose the checkpoint (result zip from the second Kaggle run)
+- [ ] Copy the round 2 `result.zip` into `local/kaggle/` as `result-run2.zip` (`local/` is never
+      committed). Rename the round 1 file there to `result-run1.zip`, so the two can't be mixed up.
+- [ ] Unpack it into the ML folder:
+      ```bash
+      cd ml
+      mkdir -p checkpoints/run2 && unzip ../local/kaggle/result-run2.zip -d checkpoints/run2
+      ls checkpoints/run2/epochs        # epoch_01.pdparams, epoch_02.pdparams, …
+      ```
+- [ ] Score every epoch on the 8 real photos, on this computer only:
+      ```bash
+      .venv/bin/python scripts/crop_lines.py      # only if ml/data/realval/ is missing
+      .venv/bin/python scripts/select_checkpoint.py --run checkpoints/run2
+      ```
+      It prints one row per epoch: synthetic validation loss, real CER, real exact match. It marks
+      the tied epochs (within 1 character error of the best) and the chosen one, and writes
+      `checkpoints/run2/chosen.pdparams` and `chosen.json`.
+- [ ] Check the curves (`checkpoints/run2/curves.png`) and `history.csv`: did the accuracy dips of
+      round 1 go away with the lower learning rate? Did early stopping trigger?
+- [ ] Compare with round 1. Round 1's model read 11 of 16 real lines with the new crops. This is
+      only a hint, because the cropper was tuned on these same photos.
+
+### 3. ML round 2: test (once the USB-camera photos arrive)
+- [ ] Collect the new **USB-camera photos** with their answers (ideally 50–100). Put them in
+      `local/client-data/` (photos zip and a labels file with the same columns as `labels.csv`).
+      These are the round 2 **test set**: not used for anything before the final evaluation.
+- [ ] Write and freeze a test protocol (`ml/out/round2/protocol.md`) before unpacking them, as in
+      round 1: cropping method, pattern correction, measures, run once.
+- [ ] **Scripts to update first** (they still point at round 1):
+  - `ml/scripts/export_onnx.py` reads `checkpoints/run1/best.pdparams`. Make it take the run
+    folder and `chosen.pdparams`.
+  - `ml/scripts/stage4_eval.py` reads `checkpoints/run1/best.pdparams` and the round 1 photos. Copy
+    it to a round 2 script that reads the new photos and `checkpoints/run2/chosen.pdparams`, and
+    uses `ml/scripts/crop_lines.py` for cropping.
+- [ ] Run the test **once**. Report per line and overall: exact match and character error rate,
+      baseline vs fine-tuned, with and without pattern correction.
+- [ ] Export the chosen model to ONNX; record its size and CPU time per line.
+
+### 4. Desktop app: camera reading (after the round 2 test)
+- [ ] Add USB-camera capture to the desktop scan screen. Reading uses the ONNX model and the
+      `crop_lines.py` method, rebuilt for the app. Pattern correction is used for the serial.
+- [ ] Bundle the ONNX model and `dict.txt` with the app. No internet is needed: the model and the
+      runtime are packaged.
+
 ## What never goes into git
 
 - **Client data:** client photos and answers, and anything derived from them: crops, test
