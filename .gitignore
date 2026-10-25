@@ -1,4 +1,4 @@
-﻿node_modules
+node_modules
 dist
 dist-ssr
 *.local
@@ -18,4 +18,56 @@ firebase-debug.log
 firestore-debug.log
 ui-debug.log
 
-public/tesseract
+apps/web/public/tesseract
+
+# ---- machine learning (ml/): environment, data and models are never committed ----
+ml/.venv/
+ml/data/
+ml/out/
+ml/checkpoints/
+ml/models/
+ml/kaggle/upload/
+*.pdparams
+*.pdopt
+*.pdstates
+*.onnx
+# client photos and answers: they live in local/client-data/ (see below); never anywhere in git
+Engravings*.zip
+labels.csv
+ml/test/
+ml/third_party/
+__pycache__/
+*.pyc
+
+# ---- local working files: client data, exports, downloaded Kaggle results (never committed) ----
+local/
+
+# ---- build output and downloads, wherever they are ----
+build/
+*.exe
+*.blockmap
+*.zip
+result*.zip
+*.dmg
+*.apk
+*.aab
+
+# spreadsheets: only the generated sample/fixture files of the web app are committed
+*.xlsx
+*.numbers
+!apps/web/sample-data/*.xlsx
+!apps/web/tests/fixtures/*.xlsx
+
+# Android (also in apps/android-scanner/.gitignore)
+apps/android-scanner/.kotlin/
+local.properties
+
+# secrets and keys
+*.pem
+*.key
+*.p12
+*.jks
+*.keystore
+google-services.json
+GoogleService-Info.plist
+serviceAccount*.json

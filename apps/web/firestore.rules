@@ -1,0 +1,218 @@
+rules_version = '2';
+
+// Authorization is enforced HERE, not by the React route guards.
+// Roles come from users/{uid}.role (trusted Firestore data). Users cannot change it.
+// Default is deny: anything not matched below is rejected.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ---- Role helpers (each reads the caller's users/{uid} document) ----
+    function signedIn() {
+      return request.auth != null;
+    }
+    function profilePath() {
+      return /databases/$(database)/documents/users/$(request.auth.uid);
+    }
+    function serialPath(serial) {
+      return /databases/$(database)/documents/serials/$(serial);
+    }
+    function hasActiveProfile() {
+      return signedIn()
+        && exists(profilePath())
+        && get(profilePath()).data.active == true;
+    }
+    function isAdmin() {
+      return hasActiveProfile() && get(profilePath()).data.role == 'admin';
+    }
+    function isOperator() {
+      return hasActiveProfile() && get(profilePath()).data.role == 'operator';
+    }
+    // Any active, configured user.
+    function isStaff() {
+      return isAdmin() || isOperator();
+    }
+
+    // ---- users/{uid} ----
+    // A user may read only their own profile (even if inactive, so the app can explain why
+    // access is blocked). Only admins write account data; nobody can edit their own role from the
+    // client. The single self-service exception is the person's own display `preferences`.
+    // The first admin is created out-of-band (Firebase console / Admin SDK), see README.
+    //
+    // ADMIN SELF-PROTECTION: an admin can never change their OWN account (role or active), so every
+    // change to an admin is made by a DIFFERENT admin who must be active at that moment and who
+    // therefore stays active: the system cannot end up with zero active admins through the client.
+    // An update may change ONLY role/active (+ attribution), never name/email/created_at.
+    // Having an inactive profile blocks all access to application data (hasActiveProfile), but it
+    // does NOT disable the person's Firebase Auth account (that needs the Admin SDK/console).
+    match /users/{uid} {
+      allow read: if signedIn() && (request.auth.uid == uid || isAdmin());
+      allow create: if isAdmin()
+        && request.resource.data.role in ['operator', 'admin']
+        && request.resource.data.active is bool;
+      allow update: if isAdmin()
+        && request.auth.uid != uid
+        && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['role', 'active', 'updated_at', 'updated_by', 'updated_by_name'])
+        && request.resource.data.role in ['operator', 'admin']
+        && request.resource.data.active is bool
+        && request.resource.data.updated_by == request.auth.uid
+        && request.resource.data.updated_by_name == get(profilePath()).data.name
+        && request.resource.data.updated_at == request.time;
+      // DISPLAY PREFERENCES: an active user may change the `preferences` map on their OWN profile
+      // (UI language and light/dark theme) and nothing else, and only to known values. This
+      // cannot touch role, active, name, email or attribution, so it grants no privileges.
+      allow update: if hasActiveProfile()
+        && request.auth.uid == uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['preferences'])
+        && request.resource.data.preferences is map
+        && request.resource.data.preferences.keys().hasOnly(['language', 'theme'])
+        && request.resource.data.preferences.get('language', 'en') in ['en', 'hi', 'mr']
+        && request.resource.data.preferences.get('theme', 'light') in ['light', 'dark'];
+      allow delete: if false; // deactivate instead
+    }
+
+    // ---- companies/{companyId} ----
+    // Operators read active companies only (queries must filter active == true). Admins create and
+    // edit (validated, attributed to the acting admin, server timestamps); nobody deletes
+    // (deactivate with active = false). Editing a company never touches serial records or scan logs.
+    function validCompany(d) {
+      return d.keys().hasOnly(['id', 'name', 'code_type', 'serial_format', 'active',
+                               'created_at', 'updated_at', 'created_by', 'updated_by', 'updated_by_name'])
+        && d.name is string && d.name.size() > 0 && d.name.size() <= 80
+        && d.code_type in ['barcode', 'qr']
+        && d.serial_format is string && d.serial_format.size() > 0 && d.serial_format.size() <= 100
+        && d.active is bool
+        && d.updated_by == request.auth.uid
+        && d.updated_by_name == get(profilePath()).data.name
+        && d.updated_at == request.time;
+    }
+    match /companies/{companyId} {
+      allow read: if isAdmin() || (isOperator() && resource.data.active == true);
+      allow create: if isAdmin()
+        && validCompany(request.resource.data)
+        && request.resource.data.id == companyId
+        && request.resource.data.created_by == request.auth.uid
+        && request.resource.data.created_at == request.time;
+      allow update: if isAdmin()
+        && validCompany(request.resource.data)
+        && request.resource.data.get('created_at', null) == resource.data.get('created_at', null)
+        && request.resource.data.get('created_by', null) == resource.data.get('created_by', null);
+      allow delete: if false; // deactivate instead
+    }
+
+    // ---- serials/{serial} ----
+    // Production history. Operators may look up ONE serial by ID (get) but cannot list the
+    // collection. Admins may list (export/reconciliation, later phases).
+    // Create-only (a write to an existing document is an update, which is never allowed), so a
+    // serial can be registered exactly once. The create is tightly validated: doc ID == serial
+    // field, attributed to the caller with their stored name, server timestamp, and a real,
+    // active company whose name matches. Updates and deletes are never allowed for anyone.
+    match /serials/{serial} {
+      allow get: if isStaff();
+      allow list: if isAdmin();
+      allow create: if isStaff()
+        && request.resource.data.keys().hasOnly(
+          ['serial', 'part_no', 'company', 'company_id', 'source',
+           'scanned_at', 'scanned_by', 'scanned_by_name'])
+        && request.resource.data.keys().hasAll(
+          ['serial', 'part_no', 'company', 'company_id', 'source',
+           'scanned_at', 'scanned_by', 'scanned_by_name'])
+        && request.resource.data.serial == serial
+        && request.resource.data.part_no is string
+        && request.resource.data.part_no.size() <= 100
+        // Operators (and admins) register 'manual'/'scan' serials; only ADMINS create 'excel'
+        // serials (the Excel import). Import creates are still create-only: an existing serial
+        // is never overwritten.
+        && ((request.resource.data.source in ['manual', 'scan'] && isStaff())
+            || (request.resource.data.source == 'excel' && isAdmin()))
+        && request.resource.data.scanned_by == request.auth.uid
+        && request.resource.data.scanned_by_name == get(profilePath()).data.name
+        && request.resource.data.scanned_at == request.time
+        && request.resource.data.company_id is string
+        && exists(/databases/$(database)/documents/companies/$(request.resource.data.company_id))
+        && get(/databases/$(database)/documents/companies/$(request.resource.data.company_id)).data.active == true
+        && get(/databases/$(database)/documents/companies/$(request.resource.data.company_id)).data.name
+             == request.resource.data.company;
+      allow update, delete: if false;
+    }
+
+    // ---- import_history/{id} ----
+    // Audit trail of Excel imports. Admin-only (read and append); never updatable/deletable.
+    match /import_history/{id} {
+      allow read: if isAdmin();
+      allow create: if isAdmin()
+        && request.resource.data.keys().hasOnly(
+          ['filename', 'imported_by', 'imported_by_name', 'imported_at', 'total_rows',
+           'new', 'skipped', 'conflicts', 'duplicates', 'invalid', 'status', 'error'])
+        && request.resource.data.keys().hasAll(
+          ['filename', 'imported_by', 'imported_by_name', 'imported_at', 'total_rows',
+           'new', 'skipped', 'conflicts', 'duplicates', 'invalid', 'status'])
+        && request.resource.data.filename is string
+        && request.resource.data.filename.size() <= 255
+        && request.resource.data.imported_by == request.auth.uid
+        && request.resource.data.imported_by_name == get(profilePath()).data.name
+        && request.resource.data.imported_at == request.time
+        && request.resource.data.status in ['completed', 'failed']
+        && request.resource.data.total_rows is int && request.resource.data.total_rows >= 0
+        && request.resource.data.new is int && request.resource.data.new >= 0
+        && request.resource.data.skipped is int && request.resource.data.skipped >= 0
+        && request.resource.data.conflicts is int && request.resource.data.conflicts >= 0
+        && request.resource.data.duplicates is int && request.resource.data.duplicates >= 0
+        && request.resource.data.invalid is int && request.resource.data.invalid >= 0;
+      allow update, delete: if false;
+    }
+
+    // ---- export_history/{id} ----
+    // Audit trail of Excel exports (who, when, how many records). Admin-only; append-only.
+    match /export_history/{id} {
+      allow read: if isAdmin();
+      allow create: if isAdmin()
+        && request.resource.data.keys().hasOnly(
+          ['filename', 'exported_by', 'exported_by_name', 'exported_at', 'record_count'])
+        && request.resource.data.keys().hasAll(
+          ['filename', 'exported_by', 'exported_by_name', 'exported_at', 'record_count'])
+        && request.resource.data.filename is string
+        && request.resource.data.filename.size() <= 255
+        && request.resource.data.exported_by == request.auth.uid
+        && request.resource.data.exported_by_name == get(profilePath()).data.name
+        && request.resource.data.exported_at == request.time
+        && request.resource.data.record_count is int
+        && request.resource.data.record_count >= 0;
+      allow update, delete: if false;
+    }
+
+    // ---- scan_log/{id} ----
+    // Append-only audit log. Entries must be attributed to the caller with a server timestamp.
+    // Never updatable or deletable from the client.
+    match /scan_log/{id} {
+      allow read: if isStaff();
+      allow create: if isStaff()
+        && request.resource.data.keys().hasOnly(
+          ['serial', 'result', 'company', 'company_id', 'source',
+           'scanned_by', 'scanned_by_name', 'timestamp'])
+        && request.resource.data.keys().hasAll(
+          ['serial', 'result', 'company', 'company_id', 'source',
+           'scanned_by', 'scanned_by_name', 'timestamp'])
+        && request.resource.data.serial is string
+        && request.resource.data.serial.size() > 0
+        && request.resource.data.serial.size() <= 100
+        && request.resource.data.result in ['new', 'duplicate']
+        && request.resource.data.source in ['manual', 'scan']
+        && request.resource.data.company is string
+        && request.resource.data.company_id is string
+        && request.resource.data.scanned_by == request.auth.uid
+        && request.resource.data.scanned_by_name == get(profilePath()).data.name
+        && request.resource.data.timestamp == request.time
+        // A log can't claim an outcome the database doesn't back up. These checks are
+        // evaluated at commit, so the log and the serial write must be in the same transaction:
+        //   'new'       -> the serial did not exist before and exists after (created in this commit)
+        //   'duplicate' -> the serial already existed
+        && (request.resource.data.result == 'duplicate'
+              ? exists(serialPath(request.resource.data.serial))
+              : (!exists(serialPath(request.resource.data.serial))
+                  && existsAfter(serialPath(request.resource.data.serial))
+                  && getAfter(serialPath(request.resource.data.serial)).data.scanned_by == request.auth.uid));
+      allow update, delete: if false;
+    }
+  }
+}

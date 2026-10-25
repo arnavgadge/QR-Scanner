@@ -54,13 +54,13 @@ confusions, seconds, notes`
 - **Character error rate** = total characters changed ÷ total characters.
 - **Most common confusions** (pairs).
 - **Calibration:** among "high" readings, what fraction were wrong? (If non-trivial, raise
-  `OCR_CONFIDENCE.high` in `src/config/ocr.ts`.) Among "low" readings, what fraction were right?
+  `OCR_CONFIDENCE.high` in `apps/web/src/config/ocr.ts`.) Among "low" readings, what fraction were right?
 - **Time saved:** median seconds photo→confirmed versus manual typing time for the same serials.
 - **Failure rate:** photos that produced "Photo not read".
 
 ## 6. Decisions the results should drive
 
-- Confidence thresholds (`OCR_CONFIDENCE` in `src/config/ocr.ts`) — placeholders today (high ≥ 85, medium ≥ 65).
+- Confidence thresholds (`OCR_CONFIDENCE` in `apps/web/src/config/ocr.ts`) — placeholders today (high ≥ 85, medium ≥ 65).
 - Whether image pre-processing (`services/ocr/tesseractOcr.ts`) needs tuning for the real engraving (contrast,
   scale, thresholding) or another provider should be plugged into the `OCRService` adapter.
 - Operator guidance (lighting/angle/distance text on the photo screen).

@@ -1,0 +1,140 @@
+@import 'tailwindcss';
+@import './print.css';
+
+/*
+ * Devanagari (Hindi, Marathi) is served from a font bundled with the app, never from a CDN: the
+ * app must work offline. The unicode-range limits it to Devanagari, so English keeps the system UI
+ * font and the file is only downloaded when Devanagari text is actually on screen.
+ * Noto Sans Devanagari, SIL Open Font License 1.1 (src/assets/fonts/NotoSansDevanagari-OFL.txt).
+ */
+@font-face {
+  font-family: 'Noto Sans Devanagari';
+  src: url('../assets/fonts/NotoSansDevanagari-wght.woff2') format('woff2');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+  unicode-range:
+    U+0900-097F, U+1CD0-1CF9, U+200C-200D, U+20A8, U+20B9, U+25CC, U+A830-A839, U+A8E0-A8FF;
+}
+
+/*
+ * Design tokens (Phase 0). Semantic meaning for operators:
+ *   BLUE = ACTION    GREEN = SUCCESS / PRINTING    RED = DUPLICATE / STOP
+ * Generates utilities such as bg-action, text-success, border-danger, bg-surface-muted.
+ * Every color in the UI comes from these variables; the dark theme below swaps their values.
+ */
+@theme {
+  --color-action: #1d4ed8;
+  --color-action-hover: #1e40af;
+  --color-action-soft: #dbeafe;
+
+  --color-success: #15803d;
+  --color-success-hover: #166534;
+  --color-success-soft: #dcfce7;
+
+  --color-danger: #b91c1c;
+  --color-danger-hover: #991b1b;
+  --color-danger-soft: #fee2e2;
+
+  /* Caution: medium-confidence OCR readings (needs a careful check, not a stop). */
+  --color-warn: #92400e;
+  --color-warn-soft: #fef3c7;
+
+  --color-info: #475569;
+  --color-info-soft: #f1f5f9;
+
+  --color-surface: #ffffff;
+  --color-surface-muted: #f8fafc;
+  --color-ink: #0f172a;
+  --color-ink-muted: #475569;
+  --color-line: #cbd5e1;
+
+  /* Text on a solid action / success / danger fill (buttons, active tabs). */
+  --color-on-accent: #ffffff;
+
+  --font-sans:
+    'Noto Sans Devanagari', ui-sans-serif, system-ui, 'Segoe UI', Roboto, Helvetica, Arial,
+    sans-serif;
+  --font-mono: ui-monospace, 'Cascadia Mono', Consolas, monospace;
+
+  /* Minimum touch target size */
+  --spacing-touch: 2.75rem;
+}
+
+/*
+ * Dark theme: <html class="dark">. SCREEN ONLY, so printing always uses the light values above
+ * (labels and any printout stay black on white whatever the theme).
+ * Every text/background pair used by the UI keeps at least 4.5:1 contrast, as in the light theme.
+ * Accents are lighter in the dark theme, so text on solid accent fills turns dark (on-accent).
+ * Result states stay unmistakable: bright green / red borders and text on deep green / red panels.
+ */
+@media screen {
+  :root.dark {
+    color-scheme: dark;
+
+    --color-action: #60a5fa;
+    --color-action-hover: #93c5fd;
+    --color-action-soft: #172554;
+
+    --color-success: #4ade80;
+    --color-success-hover: #86efac;
+    --color-success-soft: #052e16;
+
+    --color-danger: #f87171;
+    --color-danger-hover: #fca5a5;
+    --color-danger-soft: #450a0a;
+
+    --color-warn: #fbbf24;
+    --color-warn-soft: #422006;
+
+    --color-info: #cbd5e1;
+    --color-info-soft: #1e293b;
+
+    --color-surface: #111827;
+    --color-surface-muted: #030712;
+    --color-ink: #f1f5f9;
+    --color-ink-muted: #a8b3c4;
+    --color-line: #475569;
+
+    --color-on-accent: #030712;
+  }
+}
+
+/*
+ * Theme switch animation: the NEW theme is revealed as a circle growing from the toggle button
+ * (src/features/preferences/themeTransition.ts animates the clip-path). The browser's default
+ * cross-fade is turned off so only the circle moves. Unsupported browsers and reduced-motion users
+ * get an instant switch (decided in script; no view transition is started).
+ */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    /* Native controls (the language dropdown's open list, scrollbars) follow the theme; the dark
+       theme above switches this to dark. */
+    color-scheme: light;
+  }
+  /* Option lists use the theme colors too (Windows/Electron draws them with the page's colors). */
+  option {
+    background-color: var(--color-surface);
+    color: var(--color-ink);
+  }
+  body {
+    margin: 0;
+    min-width: 320px;
+    overflow-x: hidden;
+    background-color: var(--color-surface-muted);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+  }
+  /* Visible keyboard focus everywhere */
+  :focus-visible {
+    outline: 3px solid var(--color-action);
+    outline-offset: 2px;
+  }
+}

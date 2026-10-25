@@ -5,7 +5,7 @@ dialog; the label size and DPI below are development defaults and must be set to
 
 ## 1. Where the numbers live
 
-`src/config/label.ts` (override at **build time** with env variables, see `.env.example`):
+`apps/web/src/config/label.ts` (override at **build time** with env variables, see `.env.example`):
 
 | Setting            | Env variable           | Default | Meaning                                               |
 | ------------------ | ---------------------- | ------- | ----------------------------------------------------- |

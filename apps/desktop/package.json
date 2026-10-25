@@ -1,0 +1,80 @@
+{
+  "name": "vicimus-serial-station",
+  "productName": "VICIMUS Serial Station",
+  "version": "1.0.0",
+  "description": "Desktop serial scanning and label station (server + nodes on the office network).",
+  "private": true,
+  "main": "build/main/main.cjs",
+  "author": "VICIMUS",
+  "scripts": {
+    "build:renderer": "npm --prefix ../web run build -- --mode desktop --outDir ../desktop/build/renderer --emptyOutDir",
+    "build:main": "node scripts/build-main.mjs",
+    "build": "npm run build:renderer && npm run build:main",
+    "start": "npm run build && node scripts/start.mjs",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "node scripts/run-tests.mjs",
+    "dist:win": "npm run build && npm run verify:bundle && electron-builder --win nsis --x64",
+    "postinstall": "node -e \"\"",
+    "verify:bundle": "node scripts/verify-bundle.mjs",
+    "start:built": "node scripts/start.mjs",
+    "lint": "node ../web/node_modules/eslint/bin/eslint.js .",
+    "format:check": "node ../web/node_modules/prettier/bin/prettier.cjs --check src tests scripts"
+  },
+  "dependencies": {
+    "better-sqlite3": "^13.0.3",
+    "bonjour-service": "^1.4.4",
+    "fast-srp-hap": "^2.0.4",
+    "selfsigned": "^5.5.0",
+    "ws": "^8.22.0"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^9.6.0",
+    "@types/node": "^26.6.4",
+    "@types/ws": "^8.18.2",
+    "electron": "^44.7.0",
+    "electron-builder": "^26.15.3",
+    "esbuild": "^0.28.2",
+    "typescript": "^6.0.3",
+    "vitest": "^5.0.3"
+  },
+  "build": {
+    "appId": "com.vicimus.serialstation",
+    "productName": "VICIMUS Serial Station",
+    "copyright": "VICIMUS",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build-resources"
+    },
+    "files": [
+      "build/**/*",
+      "package.json"
+    ],
+    "asarUnpack": [
+      "**/*.node"
+    ],
+    "npmRebuild": false,
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build-resources/icon.png",
+      "signAndEditExecutable": false
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": true,
+      "allowElevation": true,
+      "runAfterFinish": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "VICIMUS Serial Station",
+      "include": "build-resources/installer.nsh",
+      "artifactName": "VICIMUS-Serial-Station-Setup-${version}.${ext}"
+    }
+  }
+}
